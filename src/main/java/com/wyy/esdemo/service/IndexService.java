@@ -17,7 +17,7 @@ import java.io.IOException;
  * @Author: wyy
  */
 @Service
-public class EsService {
+public class IndexService {
 
     @Value("${spring.elasticsearch.shards}")
     private int shards;
