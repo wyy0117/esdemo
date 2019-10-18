@@ -20,9 +20,11 @@ public class IndexTest {
     public void testIndex() throws IOException {
         boolean existed = indexService.indexExisted("test");
         assert !existed;
+
         indexService.createIndex("test");
         existed = indexService.indexExisted("test");
         assert existed;
+
         indexService.deleteIndex("test");
         existed = indexService.indexExisted("test");
         assert !existed;

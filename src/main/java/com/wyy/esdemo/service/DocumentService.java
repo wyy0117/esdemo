@@ -4,8 +4,12 @@ import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
+import org.elasticsearch.action.get.MultiGetRequest;
+import org.elasticsearch.action.get.MultiGetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.search.fetch.subphase.FetchSourceContext;
@@ -13,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -63,10 +68,26 @@ public class DocumentService {
         return restHighLevelClient.delete(request, RequestOptions.DEFAULT);
     }
 
-
-    public GetResponse getDocuments(String indexName) throws IOException {
-        GetRequest request = new GetRequest(indexName);
-        return restHighLevelClient.get(request, RequestOptions.DEFAULT);
+    /**
+     * only update,if document not exist will throw exception
+     *
+     * @param indexName
+     * @param id
+     * @param document
+     * @return
+     * @throws IOException
+     */
+    public UpdateResponse updateDocument(String indexName, String id, Map<String, Object> document) throws IOException {
+        UpdateRequest request = new UpdateRequest(indexName, id);
+        request.doc(document);
+        return restHighLevelClient.update(request, RequestOptions.DEFAULT);
     }
 
+    public MultiGetResponse queryDocuments(String indexName, List<String> idList) throws IOException {
+        MultiGetRequest request = new MultiGetRequest();
+        for (String id : idList) {
+            request.add(new MultiGetRequest.Item(indexName, id));
+        }
+        return restHighLevelClient.mget(request, RequestOptions.DEFAULT);
+    }
 }
