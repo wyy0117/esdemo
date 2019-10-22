@@ -4,8 +4,10 @@ import com.wyy.esdemo.service.BulkService
 import com.wyy.esdemo.service.DocumentService
 import com.wyy.esdemo.service.IndexService
 import com.wyy.esdemo.service.SearchService
+import com.wyy.esdemo.util.ESQueryBuilder
 import org.elasticsearch.action.search.MultiSearchResponse
 import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.index.query.QueryBuilder
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -44,7 +46,7 @@ class SearchTest {
     }
 
     @Test
-    void test() {
+    void search() {
         Map map = [
                 "1": [name: "a", age: 10],
                 "2": [name: "b", age: 10],
@@ -57,24 +59,61 @@ class SearchTest {
 
         SearchResponse searchResponse = searchService.search(indexName, 0, 2)
         assert searchResponse.hits.hits.length == 2
-
-        searchResponse = searchService.andSearch(indexName, 0, 2, [name: "a"])
-        assert searchResponse.hits.hits.length == 1
-
-        searchResponse = searchService.andSearch(indexName, 0, 2, [name: "a", age: 20])
-        assert searchResponse.hits.hits.length == 0
-
-        searchResponse = searchService.orSearch(indexName, 0, 3, [name: "a", age: 20])
-        assert searchResponse.hits.hits.length == 2
-        assert (searchResponse.hits.hits*.id - ["1", "5"]).size() == 0
-
-        MultiSearchResponse multiSearchResponse = searchService.multiSearch(indexName, [[name: "a"], [name: "d"]])
-        assert multiSearchResponse.responses[0].response.hits.hits.length == 1
-        assert multiSearchResponse.responses[0].response.hits.hits[0].getSourceAsMap().name == "a"
-        assert multiSearchResponse.responses[1].response.hits.hits.length == 2
-        assert multiSearchResponse.responses[1].response.hits.hits[0].getSourceAsMap().age == 10
-        assert multiSearchResponse.responses[1].response.hits.hits[1].getSourceAsMap().age == 20
     }
 
+    @Test
+    void customSearch() {
+        Map map = [
+                "1": [name: "aa", age: 1],
+                "2": [name: "bb", age: 2],
+                "3": [name: "ca", age: 3],
+                "4": [name: "da", age: 4],
+                "5": [name: "ee", age: 5],
+        ]
+        bulkService.bulkAddDocument(indexName, map)
 
+        QueryBuilder queryBuilder = ESQueryBuilder.and(
+                ESQueryBuilder.eq("name", "aa"),
+                ESQueryBuilder.ne("name", "11"),
+                ESQueryBuilder.gt("age", 0),
+                ESQueryBuilder.lt("age", 2),
+        )
+
+        SearchResponse searchResponse = searchService.customSearch(indexName, queryBuilder)
+        assert searchResponse.hits.hits.length == 1
+
+        queryBuilder = ESQueryBuilder.or(
+                ESQueryBuilder.gte("age", 5),
+                ESQueryBuilder.lte("age", 1),
+                ESQueryBuilder.in("name", ["aa", "ee"]),
+                ESQueryBuilder.between("age", 0, 1),
+                ESQueryBuilder.like("name", "*e")
+        )
+
+        searchResponse = searchService.customSearch(indexName, queryBuilder)
+        assert searchResponse.hits.hits.length == 2
+    }
+
+    @Test
+    void multiSearch() {
+        Map map = [
+                "1": [name: "aa", age: 1],
+                "2": [name: "bb", age: 2],
+                "3": [name: "ca", age: 3],
+                "4": [name: "da", age: 4],
+                "5": [name: "ee", age: 5],
+        ]
+        bulkService.bulkAddDocument(indexName, map)
+
+        bulkService.bulkAddDocument("index2", map)
+
+        Map query = [
+                (indexName): ESQueryBuilder.eq("name", "aa"),
+                index2     : ESQueryBuilder.lte("age", 2)
+        ]
+
+        MultiSearchResponse multiSearchResponse = searchService.multiSearch(query)
+        assert multiSearchResponse.responses[0].response.hits.hits.length == 1
+        assert multiSearchResponse.responses[1].response.hits.hits.length == 2
+    }
 }
